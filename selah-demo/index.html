@@ -1,0 +1,845 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>셀라 — Selah 데모</title>
+<style>
+    /* ===== 전역 기본값 ===== */
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    :root {
+        --navy: #0b1026;
+        --navy2: #160f31;
+        --purple: #2a1b4a;
+        --gold: #ffd66b;
+        --gold-soft: #ffe9a8;
+        --pink: #ffc9d9;
+        --pink2: #ff9fc0;
+        --glass: rgba(255,255,255,0.10);
+        --glass-line: rgba(255,255,255,0.16);
+        --text: #f4f1ff;
+        --muted: #b9b3d6;
+    }
+    html, body {
+        height: 100%;
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro", "Helvetica Neue", "Apple SD Gothic Neo", sans-serif;
+        background: radial-gradient(1200px 800px at 50% -10%, #241546 0%, #0a0a18 60%, #05060f 100%);
+        color: var(--text);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+    }
+
+    /* ===== 아이폰 목업 프레임 ===== */
+    .phone {
+        position: relative;
+        width: 390px;
+        height: 844px;
+        border-radius: 54px;
+        background: #000;
+        box-shadow: 0 40px 120px rgba(0,0,0,0.7), 0 0 0 12px #1c1c22, 0 0 0 14px #2c2c34;
+        overflow: hidden;
+    }
+    /* 노치 */
+    .notch {
+        position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+        width: 150px; height: 30px; background: #000;
+        border-bottom-left-radius: 18px; border-bottom-right-radius: 18px;
+        z-index: 80;
+    }
+    /* 상태바 */
+    .statusbar {
+        position: absolute; top: 0; left: 0; right: 0; height: 52px;
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 16px 30px 0; font-size: 14px; font-weight: 600; z-index: 70;
+        color: #fff; pointer-events: none;
+    }
+    .statusbar .right { display: flex; gap: 6px; align-items: center; }
+    /* 홈 인디케이터 */
+    .home-indicator {
+        position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%);
+        width: 134px; height: 5px; border-radius: 3px; background: rgba(255,255,255,0.55); z-index: 90;
+    }
+
+    /* ===== 화면 공통 ===== */
+    .screen {
+        position: absolute; inset: 0; opacity: 0; pointer-events: none;
+        transition: opacity .45s ease, transform .45s ease; transform: scale(1.03);
+    }
+    .screen.active { opacity: 1; pointer-events: auto; transform: scale(1); }
+
+    /* ===== 잠금화면 ===== */
+    #lock {
+        background:
+            radial-gradient(700px 500px at 70% 12%, rgba(120,80,200,0.45), transparent 60%),
+            radial-gradient(600px 700px at 20% 90%, rgba(60,40,120,0.5), transparent 60%),
+            linear-gradient(160deg, #0d0a24, #07060f);
+    }
+    #lock .stars-bg { position: absolute; inset: 0; z-index: 1; }
+    .clock { position: absolute; top: 92px; left: 0; right: 0; text-align: center; z-index: 5; }
+    .clock .date { font-size: 17px; font-weight: 600; color: #e9e6ff; opacity: .9; letter-spacing: .3px; }
+    .clock .time { font-size: 80px; font-weight: 700; letter-spacing: -2px; margin-top: 2px; line-height: 1; }
+
+    .lock-widget {
+        position: absolute; left: 20px; right: 20px; top: 300px; z-index: 6;
+        background: var(--glass); border: 1px solid var(--glass-line);
+        backdrop-filter: blur(22px); -webkit-backdrop-filter: blur(22px);
+        border-radius: 26px; padding: 16px; cursor: pointer;
+        transition: transform .15s ease, box-shadow .2s ease;
+        box-shadow: 0 12px 40px rgba(0,0,0,0.35);
+    }
+    .lock-widget:active { transform: scale(0.975); }
+    .lw-top { display: flex; align-items: center; gap: 13px; }
+    .lw-avatar {
+        width: 56px; height: 56px; border-radius: 50%; flex: 0 0 56px;
+        background: radial-gradient(circle at 50% 38%, #fff 0%, #ffdce8 55%, #b98ad6 100%);
+        overflow: hidden; position: relative;
+        box-shadow: 0 0 0 2px rgba(255,255,255,0.25), 0 0 22px rgba(255,150,200,0.5);
+    }
+    .lw-avatar img {
+        position: absolute; width: 150%; height: 150%; left: -25%; top: -16%;
+        object-fit: contain;
+        -webkit-mask-image: radial-gradient(circle at 50% 42%, #000 52%, transparent 70%);
+        mask-image: radial-gradient(circle at 50% 42%, #000 52%, transparent 70%);
+    }
+    .lw-name { font-size: 16px; font-weight: 700; }
+    .lw-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .lw-badge { margin-left: auto; font-size: 11px; color: var(--gold); font-weight: 700; }
+    .lw-stars { font-size: 22px; font-weight: 800; margin-top: 12px; color: #fff; }
+    .lw-stars span { color: var(--gold); }
+    .lw-bar-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 11px; color: var(--muted); }
+    .bar { flex: 1; height: 7px; border-radius: 4px; background: rgba(255,255,255,0.14); overflow: hidden; }
+    .bar > i { display: block; height: 100%; border-radius: 4px;
+        background: linear-gradient(90deg, var(--pink2), var(--gold)); }
+    .lock-hint { position: absolute; bottom: 30px; left: 0; right: 0; text-align: center;
+        font-size: 12.5px; color: rgba(255,255,255,.6); z-index: 6; animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100%{opacity:.45} 50%{opacity:.9} }
+
+    /* ===== 앱 컨테이너 ===== */
+    #app {
+        background:
+            radial-gradient(800px 500px at 50% -8%, rgba(120,70,190,0.5), transparent 55%),
+            linear-gradient(180deg, #140e2e 0%, #0b0a1c 55%, #08060f 100%);
+        display: flex; flex-direction: column;
+    }
+    .app-head {
+        position: absolute; top: 52px; left: 0; right: 0; height: 44px; z-index: 40;
+        display: flex; align-items: center; justify-content: space-between; padding: 0 20px;
+    }
+    .app-title { font-size: 19px; font-weight: 800; letter-spacing: .5px; }
+    .app-title small { font-size: 11px; font-weight: 600; color: var(--muted); margin-left: 6px; }
+    .lock-btn {
+        font-size: 12px; color: var(--muted); background: var(--glass);
+        border: 1px solid var(--glass-line); padding: 7px 12px; border-radius: 20px; cursor: pointer;
+    }
+    .lock-btn:active { transform: scale(.95); }
+
+    /* 스크롤 영역 */
+    .scroll {
+        position: absolute; top: 96px; bottom: 84px; left: 0; right: 0;
+        overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 6px 18px 26px;
+    }
+    .scroll::-webkit-scrollbar { display: none; }
+    .tab-page { display: none; }
+    .tab-page.active { display: block; animation: fade .35s ease; }
+    @keyframes fade { from {opacity:0; transform: translateY(8px)} to {opacity:1; transform:none} }
+
+    /* ===== 하단 탭바 ===== */
+    .tabbar {
+        position: absolute; bottom: 0; left: 0; right: 0; height: 84px; z-index: 50;
+        background: rgba(12,10,26,0.72); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+        border-top: 1px solid rgba(255,255,255,0.08);
+        display: flex; padding: 8px 6px 22px;
+    }
+    .tab-btn {
+        flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px;
+        background: none; border: none; color: var(--muted); cursor: pointer; font-size: 10.5px; font-weight: 600;
+        transition: color .2s ease;
+    }
+    .tab-btn .ic { font-size: 21px; line-height: 1; filter: grayscale(.4); opacity: .75; transition: all .2s; }
+    .tab-btn.active { color: #fff; }
+    .tab-btn.active .ic { filter: none; opacity: 1; transform: translateY(-1px); }
+
+    /* ===== 공용 컴포넌트 ===== */
+    .card {
+        background: var(--glass); border: 1px solid var(--glass-line); border-radius: 22px;
+        padding: 16px; margin-bottom: 14px; backdrop-filter: blur(12px);
+    }
+    .card.tap { cursor: pointer; transition: transform .15s ease, border-color .2s; }
+    .card.tap:active { transform: scale(.985); }
+    .sec-label { font-size: 12px; font-weight: 700; color: var(--muted); margin: 4px 2px 10px; letter-spacing: .4px; }
+    .row { display: flex; align-items: center; gap: 10px; }
+    .pill { font-size: 11px; font-weight: 700; padding: 5px 11px; border-radius: 20px;
+        background: rgba(255,214,107,0.15); color: var(--gold); border: 1px solid rgba(255,214,107,0.25); }
+    .btn-primary {
+        width: 100%; border: none; border-radius: 18px; padding: 15px; cursor: pointer;
+        font-size: 15px; font-weight: 800; color: #2a0e1c;
+        background: linear-gradient(100deg, var(--pink), var(--gold-soft));
+        box-shadow: 0 8px 24px rgba(255,170,200,0.3);
+    }
+    .btn-primary:active { transform: scale(.98); }
+    .gold { color: var(--gold); }
+    .big-num { font-size: 30px; font-weight: 800; letter-spacing: -.5px; }
+    .muted { color: var(--muted); }
+
+    /* ===== 홈: 정원 ===== */
+    .garden {
+        position: relative; height: 340px; border-radius: 26px; overflow: hidden; margin-bottom: 14px;
+        background:
+            radial-gradient(380px 240px at 50% 16%, rgba(150,110,235,0.55), transparent 62%),
+            radial-gradient(260px 200px at 78% 80%, rgba(255,150,200,0.28), transparent 60%),
+            linear-gradient(180deg, #1b1142 0%, #241958 40%, #3a2a6e 100%);
+        border: 1px solid var(--glass-line);
+    }
+    .garden .chip {
+        position: absolute; top: 14px; left: 14px; right: 14px; z-index: 6;
+        display: flex; align-items: center; gap: 8px; font-size: 11.5px; font-weight: 700;
+        background: rgba(0,0,0,0.28); border: 1px solid var(--glass-line);
+        padding: 8px 12px; border-radius: 18px; backdrop-filter: blur(8px);
+    }
+    .planet {
+        position: absolute; bottom: -70px; left: 50%; transform: translateX(-50%);
+        width: 320px; height: 320px; border-radius: 50%;
+        background: radial-gradient(circle at 50% 30%, #6b53b8 0%, #4a368f 45%, #2c1f5e 100%);
+        box-shadow: inset 0 14px 40px rgba(255,255,255,0.18), inset 0 -30px 60px rgba(0,0,0,0.4);
+    }
+    .planet::after { /* 지표 하이라이트 */
+        content:""; position:absolute; top:18%; left:20%; width:55%; height:30%; border-radius:50%;
+        background: radial-gradient(circle, rgba(255,255,255,0.18), transparent 70%);
+    }
+    .cat {
+        position: absolute; bottom: 96px; left: 50%; transform: translateX(-50%);
+        width: 168px; height: 168px; z-index: 5; animation: bob 3.4s ease-in-out infinite;
+    }
+    .cat img {
+        width: 100%; height: 100%; object-fit: contain;
+        -webkit-mask-image: radial-gradient(circle at 50% 45%, #000 50%, transparent 68%);
+        mask-image: radial-gradient(circle at 50% 45%, #000 50%, transparent 68%);
+        filter: drop-shadow(0 10px 24px rgba(255,160,210,0.45));
+    }
+    @keyframes bob { 0%,100%{transform: translateX(-50%) translateY(0)} 50%{transform: translateX(-50%) translateY(-9px)} }
+    .plant { position: absolute; bottom: 86px; font-size: 26px; z-index: 4; animation: sway 4s ease-in-out infinite; }
+    .plant.p1 { left: 70px; bottom: 70px; font-size: 22px; }
+    .plant.p2 { right: 74px; bottom: 64px; font-size: 30px; animation-delay: .6s; }
+    .plant.p3 { right: 120px; bottom: 100px; font-size: 18px; animation-delay: 1.2s; }
+    @keyframes sway { 0%,100%{transform: rotate(-5deg)} 50%{transform: rotate(5deg)} }
+    .twinkle { position: absolute; color: var(--gold); z-index: 4; animation: tw 2.6s ease-in-out infinite; }
+    @keyframes tw { 0%,100%{opacity:.25; transform: scale(.8)} 50%{opacity:1; transform: scale(1.15)} }
+
+    /* 일일 기록 */
+    .feed-line { display:flex; align-items:center; gap:10px; font-size:13px; padding:10px 0; border-bottom:1px solid rgba(255,255,255,0.07); }
+    .feed-line:last-child { border-bottom:none; }
+    .feed-line .plus { margin-left:auto; font-weight:800; color: var(--gold); }
+    .mood-row { display:flex; gap:8px; margin:10px 0 12px; }
+    .mood {
+        width: 44px; height: 44px; border-radius: 14px; font-size: 21px; cursor: pointer;
+        background: rgba(255,255,255,0.06); border: 1px solid transparent; display:flex; align-items:center; justify-content:center;
+        transition: all .15s;
+    }
+    .mood.sel { border-color: var(--gold); background: rgba(255,214,107,0.15); transform: scale(1.06); }
+    .note-input {
+        width: 100%; background: rgba(255,255,255,0.06); border: 1px solid var(--glass-line);
+        border-radius: 14px; padding: 12px 14px; color: #fff; font-size: 14px; font-family: inherit; outline: none;
+    }
+    .note-input::placeholder { color: rgba(255,255,255,0.4); }
+
+    /* ===== 홈: 오늘의 활동 기록(아이콘 그리드) ===== */
+    .act-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .act-tile {
+        background: rgba(255,255,255,0.06); border: 1px solid var(--glass-line); border-radius: 16px;
+        padding: 14px 6px 12px; text-align: center; cursor: pointer; position: relative; transition: all .15s;
+    }
+    .act-tile:active { transform: scale(.94); }
+    .act-tile .aic { font-size: 24px; line-height: 1; }
+    .act-tile .alabel { font-size: 11.5px; font-weight: 700; margin-top: 7px; }
+    .act-tile .aval { font-size: 10.5px; color: var(--gold); font-weight: 700; margin-top: 3px; }
+    .act-tile.done { border-color: rgba(255,214,107,0.55); background: rgba(255,214,107,0.13); }
+    .act-tile.done::after { content: "✓"; position: absolute; top: 7px; right: 9px; font-size: 11px; font-weight: 800; color: var(--gold); }
+    .act-tile.done .aval { color: #fff; }
+
+    /* ===== 활동: 소스 바 ===== */
+    .src { margin-bottom: 12px; }
+    .src .top { display:flex; justify-content:space-between; font-size:12.5px; margin-bottom:6px; }
+    .src .bar { height: 9px; }
+    .timeline-item { display:flex; gap:12px; padding:11px 0; border-bottom:1px solid rgba(255,255,255,0.06); }
+    .timeline-item:last-child { border:none; }
+    .ti-dot { width:9px; height:9px; border-radius:50%; margin-top:5px; flex:0 0 9px;
+        background: var(--gold); box-shadow:0 0 10px var(--gold); }
+    .ti-dot.passive { background: var(--pink2); box-shadow:0 0 10px var(--pink2); }
+    .ti-main { font-size:13.5px; font-weight:600; }
+    .ti-sub { font-size:11.5px; color: var(--muted); margin-top:2px; }
+    .ti-plus { margin-left:auto; font-weight:800; color:#fff; font-size:13px; }
+
+    /* ===== 패턴: 차트 ===== */
+    .seg { display:flex; background: rgba(255,255,255,0.06); border-radius: 14px; padding: 4px; margin-bottom: 16px; }
+    .seg button { flex:1; border:none; background:none; color: var(--muted); font-weight:700; font-size:13px;
+        padding: 9px; border-radius: 10px; cursor:pointer; transition: all .2s; }
+    .seg button.active { background: linear-gradient(100deg, var(--pink2), var(--gold)); color:#2a0e1c; }
+    .chart { height: 200px; display:flex; align-items:flex-end; gap:8px; padding: 10px 4px 0; }
+    .col { flex:1; display:flex; flex-direction:column; align-items:center; gap:6px; }
+    .col .barv { width: 70%; border-radius: 8px 8px 4px 4px;
+        background: linear-gradient(180deg, var(--gold), var(--pink2)); transition: height .5s ease; min-height: 4px; }
+    .col .lbl { font-size: 10.5px; color: var(--muted); }
+    .insight { font-size: 13px; line-height: 1.5; }
+
+    /* ===== 연대기 ===== */
+    .chron-card {
+        border-radius: 22px; padding: 18px; margin-bottom: 14px; position: relative; overflow: hidden;
+        background: linear-gradient(135deg, rgba(120,80,200,0.4), rgba(40,30,90,0.5));
+        border: 1px solid var(--glass-line);
+    }
+    .chron-card.hero { background: linear-gradient(135deg, rgba(255,160,200,0.32), rgba(120,80,200,0.5)); }
+    .chron-date { font-size: 11.5px; color: var(--gold); font-weight: 700; }
+    .chron-title { font-size: 16px; font-weight: 800; margin: 7px 0; line-height: 1.4; }
+    .chron-meta { font-size: 12px; color: var(--muted); }
+    .share-btn { margin-top: 12px; font-size: 12.5px; font-weight: 700; color: #fff;
+        background: rgba(255,255,255,0.12); border:1px solid var(--glass-line); padding: 9px 14px; border-radius: 14px; cursor:pointer; }
+    .share-btn:active { transform: scale(.97); }
+    .new-tag { position:absolute; top:14px; right:14px; font-size:10px; font-weight:800; color:#2a0e1c;
+        background: var(--gold); padding: 3px 8px; border-radius: 10px; }
+
+    /* ===== 보상 ===== */
+    .tier-head { text-align:center; padding: 8px 0 4px; }
+    .tier-stars { font-size: 30px; letter-spacing: 4px; }
+    .tier-grade { font-size: 13px; color: var(--gold); font-weight: 700; margin-top: 4px; }
+    .reward-row { display:flex; align-items:center; gap:12px; padding: 13px 0; border-bottom:1px solid rgba(255,255,255,0.07); }
+    .reward-row:last-child { border:none; }
+    .reward-ic { width:42px; height:42px; border-radius:13px; background: rgba(255,214,107,0.14);
+        display:flex; align-items:center; justify-content:center; font-size:20px; flex:0 0 42px; }
+    .reward-name { font-size:14px; font-weight:700; }
+    .reward-sub { font-size:11.5px; color: var(--muted); margin-top:2px; }
+    .reward-cta { margin-left:auto; font-size:12px; font-weight:800; color: var(--gold);
+        border:1px solid rgba(255,214,107,0.35); padding:7px 12px; border-radius:14px; cursor:pointer; }
+
+    /* ===== 도착 오버레이 ===== */
+    #arrival {
+        position: absolute; inset: 0; z-index: 200; display: none;
+        background: radial-gradient(600px 600px at 50% 40%, #2a1a5c, #08060f 75%);
+        flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 30px;
+    }
+    #arrival.show { display: flex; animation: fade .5s ease; }
+    .arr-scene { position: relative; width: 100%; height: 280px; margin-bottom: 10px; }
+    .arr-cat { position:absolute; left: 24px; bottom: 60px; width: 110px; height:110px; }
+    .arr-cat img { width:100%; height:100%; object-fit:contain;
+        -webkit-mask-image: radial-gradient(circle at 50% 45%, #000 50%, transparent 68%);
+        mask-image: radial-gradient(circle at 50% 45%, #000 50%, transparent 68%); }
+    .arr-target { position:absolute; right: 30px; top: 40px; font-size: 46px; animation: glow 1.6s infinite; }
+    @keyframes glow { 0%,100%{filter: drop-shadow(0 0 8px var(--gold))} 50%{filter: drop-shadow(0 0 26px var(--gold))} }
+    .flystar { position:absolute; color: var(--gold); font-size: 18px; left: 110px; bottom: 110px; opacity:0; }
+    .arr-copy { font-size: 20px; font-weight: 800; line-height: 1.5; margin-bottom: 8px; }
+    .arr-sub { font-size: 14px; color: var(--muted); line-height: 1.6; margin-bottom: 26px; }
+    .arr-count { color: var(--gold); }
+    .arr-close { border:none; background: rgba(255,255,255,0.14); border:1px solid var(--glass-line);
+        color:#fff; padding: 13px 28px; border-radius: 16px; font-weight:700; font-size:14px; cursor:pointer; }
+
+    /* ===== 토스트 ===== */
+    #toast {
+        position: absolute; bottom: 100px; left: 50%; transform: translateX(-50%) translateY(20px);
+        background: rgba(20,16,40,0.95); border: 1px solid var(--glass-line); color:#fff;
+        padding: 12px 20px; border-radius: 16px; font-size: 13px; font-weight: 600; z-index: 250;
+        opacity: 0; transition: all .3s ease; pointer-events: none; white-space: nowrap;
+        box-shadow: 0 10px 30px rgba(0,0,0,.5);
+    }
+    #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    .desk-hint { position: fixed; bottom: 18px; left: 0; right: 0; text-align:center; font-size:12px; color:#6b6788; z-index:1; }
+    @media (max-height: 860px) {
+        .phone { transform: scale(0.92); }
+    }
+</style>
+</head>
+<body>
+<div class="phone">
+    <div class="notch"></div>
+    <div class="statusbar">
+        <span id="sb-time">9:41</span>
+        <span class="right">􀙇 􀜉 􀛨</span>
+    </div>
+
+    <!-- ===================== 잠금화면 ===================== -->
+    <div class="screen active" id="lock">
+        <canvas class="stars-bg" id="starCanvas"></canvas>
+        <div class="clock">
+            <div class="date">6월 2일 월요일</div>
+            <div class="time">9:41</div>
+        </div>
+
+        <div class="lock-widget" onclick="enterApp()">
+            <div class="lw-top">
+                <div class="lw-avatar"><img src="byeol.png" alt="별이" /></div>
+                <div>
+                    <div class="lw-name">셀라 · 별이</div>
+                    <div class="lw-sub">장원영과 함께한 지 1,247일째</div>
+                </div>
+                <div class="lw-badge">D-7</div>
+            </div>
+            <div class="lw-stars">오늘 모은 별 <span>✦ +3</span></div>
+            <div class="lw-bar-row">
+                <span>컴백 도착</span>
+                <div class="bar"><i style="width:84%"></i></div>
+                <span>84%</span>
+            </div>
+        </div>
+        <div class="lock-hint">↑ 위젯을 탭하면 셀라가 열려요</div>
+    </div>
+
+    <!-- ===================== 앱 ===================== -->
+    <div class="screen" id="app">
+        <div class="app-head">
+            <div class="app-title">셀라<small>Selah</small></div>
+            <div class="lock-btn" onclick="lockScreen()">􀎡 잠금</div>
+        </div>
+
+        <div class="scroll" id="scroll">
+            <!-- ---------- 1. 홈 / 정원 ---------- -->
+            <div class="tab-page active" id="page-home">
+                <div class="garden">
+                    <div class="chip">
+                        <span>🐾 별이</span><span class="muted">·</span>
+                        <span class="muted">장원영과 1,247일</span>
+                        <span style="margin-left:auto" class="gold">✦ <b id="home-total">8,940</b></span>
+                    </div>
+                    <div class="twinkle" style="top:70px; left:50px; font-size:14px">✦</div>
+                    <div class="twinkle" style="top:110px; right:40px; font-size:20px">✦</div>
+                    <div class="twinkle" style="top:150px; left:90px; font-size:11px; animation-delay:.8s">✦</div>
+                    <div class="twinkle" style="top:60px; right:90px; font-size:12px; animation-delay:1.4s">✦</div>
+                    <div class="planet"></div>
+                    <div class="plant p1">🌱</div>
+                    <div class="plant p2">🌸</div>
+                    <div class="plant p3">🌿</div>
+                    <div class="cat"><img src="byeol.png" alt="별이" /></div>
+                </div>
+
+                <div class="card tap" onclick="playArrival()" id="comeback-banner">
+                    <div class="row">
+                        <span style="font-size:22px">🚀</span>
+                        <div>
+                            <div style="font-weight:800; font-size:14.5px" id="cb-title">IVE 컴백 D-7 — 별이 도착하고 있어요</div>
+                            <div class="muted" style="font-size:12px; margin-top:3px" id="cb-sub">함께 키운 별이 닿는 중 · 탭해서 보기 ▸</div>
+                        </div>
+                    </div>
+                    <div class="lw-bar-row" style="margin-top:12px">
+                        <div class="bar"><i id="cb-bar" style="width:84%"></i></div>
+                        <span id="cb-pct">84%</span>
+                    </div>
+                </div>
+
+                <div class="sec-label">오늘의 활동 기록 <span class="muted" style="font-weight:600; font-size:11px">· 탭해서 인증하면 별이 쌓여요</span></div>
+                <div class="card">
+                    <div class="act-grid">
+                        <div class="act-tile" onclick="logActivity(this,'스밍 인증',3,'🎧')"><div class="aic">🎧</div><div class="alabel">스밍 인증</div><div class="aval">✦+3</div></div>
+                        <div class="act-tile" onclick="logActivity(this,'앨범 구매',40,'💿')"><div class="aic">💿</div><div class="alabel">앨범 구매</div><div class="aval">✦+40</div></div>
+                        <div class="act-tile" onclick="logActivity(this,'직관',120,'🎫')"><div class="aic">🎫</div><div class="alabel">직관</div><div class="aval">✦+120</div></div>
+                        <div class="act-tile" onclick="logActivity(this,'음방 투표',5,'🗳️')"><div class="aic">🗳️</div><div class="alabel">음방 투표</div><div class="aval">✦+5</div></div>
+                        <div class="act-tile" onclick="logActivity(this,'SNS 영업',8,'📣')"><div class="aic">📣</div><div class="alabel">SNS 영업</div><div class="aval">✦+8</div></div>
+                        <div class="act-tile" onclick="logActivity(this,'굿즈 구매',15,'🛍️')"><div class="aic">🛍️</div><div class="alabel">굿즈 구매</div><div class="aval">✦+15</div></div>
+                    </div>
+                </div>
+
+                <div class="sec-label">오늘의 기록</div>
+                <div class="card" id="today-feed">
+                    <div class="feed-line">
+                        <span>🎧</span><span>Spotify 스밍 — IVE 14곡</span><span class="plus">자동 ✦+3</span>
+                    </div>
+                    <div class="feed-line">
+                        <span>📅</span><span>컴백 캘린더 체크인</span><span class="plus">자동 ✦+1</span>
+                    </div>
+                    <div class="feed-line" id="water-feed" style="display:none">
+                        <span>💧</span><span>별이에게 물 주기</span><span class="plus" id="water-feed-amt">✦+5</span>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div style="font-weight:800; font-size:14px; margin-bottom:4px">💧 별이 돌보기 <span class="muted" style="font-weight:600; font-size:11.5px">(안 해도 별은 쌓여요)</span></div>
+                    <div class="muted" style="font-size:12px; margin-bottom:12px">하루 한 번, 가끔 황금별이 터져요 ✨</div>
+                    <button class="btn-primary" onclick="giveWater()" id="water-btn">💧 물 주기</button>
+                </div>
+
+                <div class="sec-label">오늘 한 줄</div>
+                <div class="card">
+                    <div class="mood-row" id="mood-row">
+                        <div class="mood" data-m="🥰" onclick="pickMood(this)">🥰</div>
+                        <div class="mood" data-m="🥹" onclick="pickMood(this)">🥹</div>
+                        <div class="mood" data-m="😆" onclick="pickMood(this)">😆</div>
+                        <div class="mood" data-m="😌" onclick="pickMood(this)">😌</div>
+                        <div class="mood" data-m="🔥" onclick="pickMood(this)">🔥</div>
+                    </div>
+                    <input class="note-input" id="note-input" placeholder="오늘 원영이에게 한 줄..." maxlength="40" />
+                    <button class="btn-primary" style="margin-top:12px" onclick="saveNote()">기록 남기기</button>
+                </div>
+            </div>
+
+            <!-- ---------- 2. 활동 ---------- -->
+            <div class="tab-page" id="page-activity">
+                <div class="sec-label">전체 활동 개요</div>
+                <div class="card">
+                    <div class="row" style="justify-content:space-between; text-align:center">
+                        <div style="flex:1"><div class="big-num gold" id="act-total">8,940</div><div class="muted" style="font-size:11px">누적 별 ✦</div></div>
+                        <div style="flex:1"><div class="big-num">12</div><div class="muted" style="font-size:11px">연속 기록일</div></div>
+                        <div style="flex:1"><div class="big-num">4</div><div class="muted" style="font-size:11px">함께한 컴백</div></div>
+                    </div>
+                </div>
+
+                <div class="sec-label">양분 소스</div>
+                <div class="card">
+                    <div class="src"><div class="top"><span>🎧 스트리밍</span><span class="gold">✦ 5,210</span></div><div class="bar"><i style="width:88%"></i></div></div>
+                    <div class="src"><div class="top"><span>📅 컴백 캘린더</span><span class="gold">✦ 1,840</span></div><div class="bar"><i style="width:52%"></i></div></div>
+                    <div class="src"><div class="top"><span>🎫 직관·앨범</span><span class="gold">✦ 1,120</span></div><div class="bar"><i style="width:34%"></i></div></div>
+                    <div class="src"><div class="top"><span>💧 돌보기</span><span class="gold">✦ 770</span></div><div class="bar"><i style="width:22%"></i></div></div>
+                </div>
+
+                <div class="sec-label">최근 활동</div>
+                <div class="card" id="timeline">
+                    <div class="timeline-item"><div class="ti-dot passive"></div><div><div class="ti-main">Spotify 스밍 — IVE 14곡</div><div class="ti-sub">오늘 09:12 · 패시브 자동</div></div><div class="ti-plus">✦+3</div></div>
+                    <div class="timeline-item"><div class="ti-dot"></div><div><div class="ti-main">컴백 캘린더 체크인</div><div class="ti-sub">오늘 08:40</div></div><div class="ti-plus">✦+1</div></div>
+                    <div class="timeline-item"><div class="ti-dot passive"></div><div><div class="ti-main">멜론 스밍 — IVE 22곡</div><div class="ti-sub">어제 23:05 · 패시브 자동</div></div><div class="ti-plus">✦+5</div></div>
+                    <div class="timeline-item"><div class="ti-dot"></div><div><div class="ti-main">앨범 구매 인증 — IVE 정규</div><div class="ti-sub">어제 19:20</div></div><div class="ti-plus">✦+40</div></div>
+                </div>
+            </div>
+
+            <!-- ---------- 3. 패턴 ---------- -->
+            <div class="tab-page" id="page-pattern">
+                <div class="sec-label">나의 활동 패턴</div>
+                <div class="seg">
+                    <button class="active" onclick="setChart('day',this)">일간</button>
+                    <button onclick="setChart('week',this)">주간</button>
+                    <button onclick="setChart('month',this)">월간</button>
+                </div>
+                <div class="card">
+                    <div class="chart" id="chart"></div>
+                </div>
+                <div class="card">
+                    <div class="sec-label" style="margin:0 0 8px">인사이트</div>
+                    <div class="insight" id="insight">🌙 <b>주말 저녁</b>에 가장 활발하게 별을 모았어요. 컴백 주간엔 평소보다 <b class="gold">2.4배</b> 더 빛났어요.</div>
+                </div>
+            </div>
+
+            <!-- ---------- 4. 연대기 ---------- -->
+            <div class="tab-page" id="page-chronicle">
+                <div class="sec-label">나의 덕질 연대기</div>
+                <div id="chron-list">
+                    <!-- 동적 카드 삽입 -->
+                </div>
+            </div>
+
+            <!-- ---------- 5. 보상 ---------- -->
+            <div class="tab-page" id="page-reward">
+                <div class="sec-label">나의 등급</div>
+                <div class="card">
+                    <div class="tier-head">
+                        <div class="tier-stars">★★★★<span class="muted">☆</span></div>
+                        <div class="tier-grade">상위 등급 · 함께한 1,247일</div>
+                    </div>
+                    <div class="lw-bar-row" style="margin-top:14px">
+                        <span class="muted">레전드까지</span>
+                        <div class="bar"><i style="width:72%"></i></div>
+                        <span class="muted">72%</span>
+                    </div>
+                    <div class="muted" style="font-size:11.5px; margin-top:10px; line-height:1.5">
+                        ⓘ 등급은 <b>연차·꾸준함</b> 기반이라 줄어들지 않아요. 돈·물량 줄세우기 없음.
+                    </div>
+                </div>
+
+                <div class="sec-label">별 소모 응모</div>
+                <div class="card">
+                    <div class="reward-row">
+                        <div class="reward-ic">🎫</div>
+                        <div><div class="reward-name">팬사인회 응모권</div><div class="reward-sub">★REWARD · 스타쉽 협의 영역</div></div>
+                        <div class="reward-cta" onclick="enterRaffle('팬사인회')">✦ 응모</div>
+                    </div>
+                    <div class="reward-row">
+                        <div class="reward-ic">🎬</div>
+                        <div><div class="reward-name">컴백 얼리 액세스</div><div class="reward-sub">상위 등급 전용 레인</div></div>
+                        <div class="reward-cta" onclick="enterRaffle('얼리 액세스')">✦ 응모</div>
+                    </div>
+                    <div class="reward-row">
+                        <div class="reward-ic">🎀</div>
+                        <div><div class="reward-name">한정 시즌 데코</div><div class="reward-sub">별이·정원 꾸미기</div></div>
+                        <div class="reward-cta" onclick="enterRaffle('한정 데코')">✦ 교환</div>
+                    </div>
+                </div>
+
+                <div class="sec-label">팬덤 공동 목표</div>
+                <div class="card">
+                    <div style="font-weight:700; font-size:14px; margin-bottom:4px">함께 보낸 별로 컴백 특전 해금 🔓</div>
+                    <div class="muted" style="font-size:12px; margin-bottom:12px">개인 줄세우기 없이, 팬덤이 함께 모아요</div>
+                    <div class="lw-bar-row"><span class="gold">✦ 1.2M</span><div class="bar"><i style="width:60%"></i></div><span class="muted">2M</span></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 하단 탭바 -->
+        <div class="tabbar">
+            <button class="tab-btn active" data-tab="home" onclick="switchTab('home',this)"><span class="ic">🪐</span>홈</button>
+            <button class="tab-btn" data-tab="activity" onclick="switchTab('activity',this)"><span class="ic">📊</span>활동</button>
+            <button class="tab-btn" data-tab="pattern" onclick="switchTab('pattern',this)"><span class="ic">📈</span>패턴</button>
+            <button class="tab-btn" data-tab="chronicle" onclick="switchTab('chronicle',this)"><span class="ic">📖</span>연대기</button>
+            <button class="tab-btn" data-tab="reward" onclick="switchTab('reward',this)"><span class="ic">🎁</span>보상</button>
+        </div>
+    </div>
+
+    <!-- ===================== 도착 오버레이 ===================== -->
+    <div id="arrival">
+        <div class="arr-scene" id="arr-scene">
+            <div class="arr-cat"><img src="byeol.png" alt="별이" /></div>
+            <div class="arr-target">🌟</div>
+        </div>
+        <div class="arr-copy">별이가 키운 별 <span class="arr-count" id="arr-num">142</span>개<br>원영에게 닿았습니다</div>
+        <div class="arr-sub">"네가 보낸 빛으로 원영이 빛나."<br>이 순간이 연대기에 박제됐어요.</div>
+        <button class="arr-close" onclick="closeArrival()">연대기에서 보기 →</button>
+    </div>
+
+    <div id="toast"></div>
+    <div class="home-indicator"></div>
+</div>
+<div class="desk-hint">셀라(Selah) iOS 데모 · 잠금화면 위젯을 탭해 시작하세요</div>
+
+<script>
+    /* ===== 상태 ===== */
+    const state = {
+        total: 8940,        // 누적 별
+        today: 3,           // 오늘 별
+        watered: false,     // 물주기 여부
+        waterTaps: 0,       // 물주기 탭 카운트(가변보상 보장용)
+        arrived: false,     // 컴백 도착 여부
+        mood: null
+    };
+
+    /* 화면 전환: 잠금 ↔ 앱 */
+    function enterApp() {
+        document.getElementById('lock').classList.remove('active');
+        document.getElementById('app').classList.add('active');
+    }
+    function lockScreen() {
+        document.getElementById('app').classList.remove('active');
+        document.getElementById('lock').classList.add('active');
+    }
+
+    /* 하단 탭 전환 */
+    function switchTab(tab, el) {
+        document.querySelectorAll('.tab-page').forEach(p => p.classList.remove('active'));
+        document.getElementById('page-' + tab).classList.add('active');
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        el.classList.add('active');
+        document.getElementById('scroll').scrollTop = 0;
+        if (tab === 'pattern') renderChart();   // 패턴 진입 시 차트 그리기
+    }
+
+    /* 토스트 표시 */
+    let toastTimer = null;
+    function toast(msg) {
+        const t = document.getElementById('toast');
+        t.textContent = msg; t.classList.add('show');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => t.classList.remove('show'), 1900);
+    }
+
+    /* 누적 별 숫자 갱신 */
+    function refreshStars() {
+        const f = n => n.toLocaleString('en-US');
+        document.getElementById('home-total').textContent = f(state.total);
+        document.getElementById('act-total').textContent = f(state.total);
+    }
+
+    /* 물 주기 — 가변보상(3번째 탭에서 황금별 보장) */
+    function giveWater() {
+        state.waterTaps++;
+        const golden = (state.waterTaps === 3) || (Math.random() < 0.18);
+        const amt = golden ? 20 : 5;
+        state.total += amt; state.today += amt; state.watered = true;
+        refreshStars();
+        // 오늘 기록 피드에 물주기 라인 노출
+        const wf = document.getElementById('water-feed');
+        wf.style.display = 'flex';
+        document.getElementById('water-feed-amt').textContent = '✦+' + (golden ? 20 : 5);
+        if (golden) {
+            burstStars();
+            toast('🌟 황금별 +20! 별이가 신났어요');
+        } else {
+            toast('💧 물 줬어요 · 별 ✦+5');
+        }
+    }
+
+    /* 오늘의 활동 인증 — 아이콘 탭으로 능동 기록 */
+    function logActivity(el, name, amt, icon) {
+        if (el.classList.contains('done')) { toast('오늘은 이미 ' + name + ' 기록했어요'); return; }
+        el.classList.add('done');
+        state.total += amt; state.today += amt; refreshStars();
+        // '오늘의 기록' 피드에 인증 내역 추가
+        const feed = document.getElementById('today-feed');
+        const line = document.createElement('div');
+        line.className = 'feed-line';
+        line.innerHTML = '<span>' + icon + '</span><span>' + name + '</span><span class="plus">✦+' + amt + '</span>';
+        feed.appendChild(line);
+        toast('✓ ' + name + ' 기록! 별 ✦+' + amt);
+    }
+
+    /* 황금별 파티클 버스트 */
+    function burstStars() {
+        const garden = document.querySelector('.garden');
+        for (let i = 0; i < 14; i++) {
+            const s = document.createElement('div');
+            s.textContent = '✦'; s.style.position = 'absolute';
+            s.style.left = (40 + Math.random()*260) + 'px';
+            s.style.top = (60 + Math.random()*180) + 'px';
+            s.style.color = '#ffd66b'; s.style.fontSize = (10 + Math.random()*18) + 'px';
+            s.style.zIndex = 9; s.style.pointerEvents = 'none';
+            s.style.transition = 'all 1s ease'; s.style.opacity = '1';
+            garden.appendChild(s);
+            requestAnimationFrame(() => {
+                s.style.transform = 'translateY(-70px) scale(1.6)'; s.style.opacity = '0';
+            });
+            setTimeout(() => s.remove(), 1100);
+        }
+    }
+
+    /* 기분 선택 */
+    function pickMood(el) {
+        document.querySelectorAll('.mood').forEach(m => m.classList.remove('sel'));
+        el.classList.add('sel');
+        state.mood = el.dataset.m;
+    }
+
+    /* 한 줄 기록 저장 */
+    function saveNote() {
+        const v = document.getElementById('note-input').value.trim();
+        if (!state.mood && !v) { toast('기분이나 한 줄을 남겨주세요'); return; }
+        state.total += 2; state.today += 2; refreshStars();
+        document.getElementById('note-input').value = '';
+        document.querySelectorAll('.mood').forEach(m => m.classList.remove('sel'));
+        state.mood = null;
+        toast('✍️ 오늘의 기록이 연대기에 쌓였어요 · ✦+2');
+    }
+
+    /* 컴백 도착 연출 */
+    function playArrival() {
+        if (state.arrived) { toast('이미 도착한 컴백이에요'); return; }
+        const ov = document.getElementById('arrival');
+        ov.classList.add('show');
+        flyStars();
+    }
+    function flyStars() {
+        const scene = document.getElementById('arr-scene');
+        for (let i = 0; i < 18; i++) {
+            const s = document.createElement('div');
+            s.className = 'flystar'; s.textContent = '✦';
+            scene.appendChild(s);
+            const delay = i * 90;
+            setTimeout(() => {
+                s.style.transition = 'all 1.1s cubic-bezier(.4,.0,.2,1)';
+                s.style.opacity = '1';
+                s.style.left = '250px'; s.style.bottom = '210px';
+                s.style.transform = 'scale(0.4)';
+                setTimeout(() => { s.style.opacity = '0'; }, 900);
+            }, delay + 50);
+            setTimeout(() => s.remove(), delay + 1400);
+        }
+    }
+    function closeArrival() {
+        document.getElementById('arrival').classList.remove('show');
+        state.arrived = true;
+        // 홈 배너 상태 갱신
+        document.getElementById('cb-title').textContent = '✨ IVE 컴백 — 별이 도착 완료!';
+        document.getElementById('cb-sub').textContent = '별 142개가 원영에게 닿았어요 · 연대기 기록됨';
+        document.getElementById('cb-bar').style.width = '100%';
+        document.getElementById('cb-pct').textContent = '100%';
+        // 연대기 hero 카드 추가
+        addArrivalChronicle();
+        // 연대기 탭으로 이동
+        document.querySelectorAll('.tab-page').forEach(p => p.classList.remove('active'));
+        document.getElementById('page-chronicle').classList.add('active');
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelector('.tab-btn[data-tab="chronicle"]').classList.add('active');
+        document.getElementById('scroll').scrollTop = 0;
+        toast('📖 새 연대기 카드가 추가됐어요');
+    }
+
+    /* 응모 */
+    function enterRaffle(name) {
+        toast('🎫 ' + name + ' 응모 완료! (등급은 그대로 유지)');
+    }
+
+    /* 공유 */
+    function share() {
+        toast('↗ 공유 카드를 X·인스타로 내보냈어요 (데모)');
+    }
+
+    /* ===== 연대기 렌더링 ===== */
+    const baseChronicle = [
+        { date: '2026.06', hero: false, title: '"100일 — 함께 보낸 별 ✦6,200"', meta: '🐾 별이 · 꾸준함 등급 상승' },
+        { date: '2026.03', hero: false, title: '"첫 직관 — 너의 별이 현장에서 빛났다"', meta: '🎫 IVE 콘서트 · ✦+120' },
+        { date: '2025.12', hero: false, title: '"별이를 만난 날 — 데뷔 7년 전부터 별을 키우고 있었어"', meta: '🌙 Day 0 · 장원영(IVE) 배정' }
+    ];
+    function renderChronicle() {
+        const list = document.getElementById('chron-list');
+        list.innerHTML = baseChronicle.map(c => chronCardHTML(c)).join('');
+    }
+    function chronCardHTML(c, isNew) {
+        return `<div class="chron-card ${c.hero ? 'hero' : ''}">
+            ${isNew ? '<div class="new-tag">NEW</div>' : ''}
+            <div class="chron-date">${c.date}</div>
+            <div class="chron-title">${c.title}</div>
+            <div class="chron-meta">${c.meta}</div>
+            ${c.hero ? '<button class="share-btn" onclick="share()">↗ 공유하기</button>' : ''}
+        </div>`;
+    }
+    function addArrivalChronicle() {
+        const list = document.getElementById('chron-list');
+        const hero = {
+            date: '2026.06 — IVE 컴백',
+            hero: true,
+            title: '"그날, 너의 별 142개가 원영에게 닿았다"',
+            meta: '🐾 별이 · 함께한 1,247일 · 컴백 도착'
+        };
+        // hero 카드를 맨 위에 삽입
+        list.insertAdjacentHTML('afterbegin', chronCardHTML(hero, true));
+    }
+
+    /* ===== 패턴 차트 ===== */
+    const chartData = {
+        day:   { labels:['0','3','6','9','12','15','18','21'], vals:[2,1,3,8,6,5,12,16], unit:'시', tip:'🌙 <b>밤 9시</b>대에 별이 가장 많이 맺혀요.' },
+        week:  { labels:['월','화','수','목','금','토','일'], vals:[18,14,16,12,22,34,40], unit:'요일', tip:'🌙 <b>주말 저녁</b>에 가장 활발해요. 컴백 주간엔 <b class="gold">2.4배</b> 더 빛났어요.' },
+        month: { labels:['1','2','3','4','5','6'], vals:[420,510,880,620,740,1180], unit:'월', tip:'🚀 <b>컴백이 있던 달</b>에 별 적립이 급증했어요(3월·6월).' }
+    };
+    let curChart = 'day';
+    function setChart(mode, el) {
+        curChart = mode;
+        document.querySelectorAll('.seg button').forEach(b => b.classList.remove('active'));
+        el.classList.add('active');
+        renderChart();
+        document.getElementById('insight').innerHTML = chartData[mode].tip;
+    }
+    function renderChart() {
+        const d = chartData[curChart];
+        const max = Math.max(...d.vals);
+        const chart = document.getElementById('chart');
+        chart.innerHTML = d.vals.map((v, i) => {
+            const h = Math.round((v / max) * 170) + 6;
+            return `<div class="col"><div class="barv" style="height:${h}px"></div><div class="lbl">${d.labels[i]}</div></div>`;
+        }).join('');
+    }
+
+    /* ===== 잠금화면 별 배경 ===== */
+    function drawStars() {
+        const c = document.getElementById('starCanvas');
+        if (!c) return;
+        const p = c.parentElement;
+        c.width = p.clientWidth; c.height = p.clientHeight;
+        const ctx = c.getContext('2d');
+        for (let i = 0; i < 90; i++) {
+            const x = Math.random() * c.width, y = Math.random() * c.height;
+            const r = Math.random() * 1.3;
+            ctx.globalAlpha = 0.3 + Math.random() * 0.7;
+            ctx.fillStyle = Math.random() > 0.85 ? '#ffd66b' : '#ffffff';
+            ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+        }
+    }
+
+    /* 초기화 */
+    renderChronicle();
+    renderChart();
+    drawStars();
+</script>
+</body>
+</html>
